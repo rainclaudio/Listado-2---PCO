@@ -1,0 +1,10 @@
+%.4f,answer
+%.4f,answer
+%.4f,answer
+%.4f,answer
+%.4f,answer
+%.4f,answer
+%.4f,answer
+%.4f,answer
+%.4f,answer
+%.4f,answer
