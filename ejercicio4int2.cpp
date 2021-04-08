@@ -3,9 +3,14 @@
 #include <utility>
 #include <vector>
 #include <sstream>
+#include <queue>
+#define EPSILON 0.0000001
+
 /*
 PROBLEM ID: 11935 "Trough the Desert"
 Made by Claudio Rain
+Se podría haber resuelto de manera mucho más fácil, pero me di cuenta de eso
+cuando ya había terminado la manera difícil.
 */
 typedef std::pair<int,int> intPair;
 typedef std::vector<intPair> intPairVector;
@@ -17,12 +22,13 @@ int Goal_ID;
 Vector GasStationvector;
 Vector MechanicVector;
 UtilQueue incidenceQueue;
-int limitFuel = 0;
-int limitLeak = 0;
+double limitFuel = 0;
+double limitLeak = 0;
 
 int process(std::string input){
   int FuelConsID = -1;
-  std::stringstream ss;
+  std::stringstream ss1;
+  std::stringstream ss2;
   std::string number;
   if(input == "0 Fuel consumption 0") return -1;
   else {
@@ -32,28 +38,37 @@ int process(std::string input){
       pos++;
     }
     int kmID = -1;
-    ss<<number;
-    ss>>kmID;
+    ss1<<number;
+    ss1>>kmID;
     pos++;
     number.clear();
     if(input[pos] == 'F'){
+      // para "Fuel"
       while(input[pos] != ' '){
         pos++;
       }
       pos++;
-      while(pos<input.size()){
-        number.push(input[pos]);
+      // para "consumption"
+      while(input[pos] != ' '){
         pos++;
       }
-      ss<<number;
-      ss>>FuelConsID;
+      pos++;
+
+      while(pos<input.size()){
+        number.push_back(input[pos]);
+        pos++;
+      }
+      //std::cout << "NUMBER PROCESS: "<<number << '\n';
+      ss2<<number;
+      ss2>>FuelConsID;
+      //std::cout << "FUEL CONSID: "<<FuelConsID << '\n';
       FuelConsvector.push_back(std::make_pair(kmID,FuelConsID));
-      incidenceQueue.push({kmID,FuelConsID},'f');
+      incidenceQueue.push({{kmID,FuelConsID},'f'});
 
     } else if(input[pos] == 'L'){
 
       Leakvector.push_back(kmID);
-      incidenceQueue.push({kmID,0},'l');
+      incidenceQueue.push({{kmID,0},'l'});
 
     } else if(input[pos] == 'G'){
       // Goal or Gas
@@ -64,18 +79,25 @@ int process(std::string input){
       } else {
 
         GasStationvector.push_back(kmID);
-        incidenceQueue.push({kmID,0},'g');
+        incidenceQueue.push({{kmID,0},'g'});
 
       }
     } else if(input[pos] == 'M'){
 
       MechanicVector.push_back(kmID);
-      incidenceQueue.push({kmID,0},'m');
+      incidenceQueue.push({{kmID,0},'m'});
 
     }
   }
 
   return 1;
+}
+void printIncidenceQueue(UtilQueue q){
+  std::cout << "\tkm: " << '\t'<< "fuel"<<'\t' << "Even" << '\n';
+  while(!q.empty()){
+    std::cout<<'\t' << q.front().first.first<<'\t' << q.front().first.second<<'\t' << q.front().second<<'\n';
+    q.pop();
+  }
 }
 void setup(bool& endFunction){
   bool gotGoal = false;
@@ -95,54 +117,62 @@ void setup(bool& endFunction){
     if(gotGoal)break;
     if(endFunction)break;
   }
-  // setear aquí la fórmula para calcular el límite superior de answer 
-}
-bool Pprop(double x){
-  double currentFuel = x;
-  // asumimos que no hay más en un principio
-  double Fuelconsumption = incidenceQueue.front().first.second / 100; // first fuel cons
-  incidenceQueue.pop();
-  int leakConsumption = 0;
+  limitFuel = (30 * (double)Goal_ID);
+  for(auto it: Leakvector){
+    limitLeak = limitLeak + (Goal_ID - it);
+  }
 
-  while (incidenceQueue.front().first.first != 0) {
-    if(incidenceQueue.front().second == 'm')leakConsumption = 0;
-    if(incidenceQueue.front().second == 'l')leakConsumption++;
-    incidenceQueue.pop();
+}
+bool Pprop(double x,UtilQueue q){
+  double currentFuel = x;
+
+  double Fuelconsumption = (double)q.front().first.second / 100; // first fuel cons
+  q.pop();
+  int leakConsumption = 0;
+  if(!q.empty()){
+    while (q.front().first.first == 0) {
+      if(q.front().second == 'm')leakConsumption = 0;
+      if(q.front().second == 'l')leakConsumption++;
+      if(q.front().second == 'f')Fuelconsumption = (double)q.front().first.second / 100;
+
+      q.pop();
+    }
   }
 
   for(int i = 1; i <= Goal_ID; ++i){
-    currentFuel = currentFuel - (Fuelconsumption + leakConsumption);
-    if(incidenceQueue.front().first.first == i){
-      while(incidenceQueue.front().first.first != i){
-        // options incidenceQueue: fc - g - m - l
-        if(incidenceQueue.front().second == 'm'){
+    currentFuel = currentFuel - (Fuelconsumption + (double)leakConsumption);
+    if(currentFuel < 0)break;
+    if(!q.empty()){
+        if(q.front().first.first == i){
+          while(q.front().first.first == i){
+            if(q.front().second == 'm'){
 
-          leakConsumption = 0;
+              leakConsumption = 0;
 
-        } else if(incidenceQueue.front().second == 'l'){
+            } else if(q.front().second == 'l'){
 
-          leakConsumption++;
+              leakConsumption++;
 
-        } else if(incidenceQueue.front().second == 'f'){
+            } else if(q.front().second == 'f'){
 
-          Fuelconsumption = incidenceQueue.front().first.second / 100;
+              Fuelconsumption = (double)q.front().first.second / 100;
+            } else if(q.front().second == 'g'){
 
-        } else if(incidenceQueue.front().second == 'g'){
+              currentFuel = x;
 
-          currentFuel = x;
-
-        }
-        incidenceQueue.pop();
+            }
+            q.pop();
+          }
       }
     }
   }
   return currentFuel >= 0;
 }
 double get_answer(){
-  double left = 0, right = Goal_ID;
-  while(left < right - 1){
+  double left = 0, right = limitFuel + limitLeak;
+  while(left < right - EPSILON){
     double mid = (left + right)/2;
-    if(Pprop(mid)) right = mid;
+    if(Pprop(mid,incidenceQueue)) right = mid;
     else left = mid;
   }
   return right;
